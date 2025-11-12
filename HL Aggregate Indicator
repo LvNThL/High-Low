@@ -4,7 +4,7 @@
 //@version=5
 indicator("High/Low", overlay = true)
 
-_lookback1 = input.int(100, "Moving Average Period", minval = 4, maxval = 4999, step = 1)
+_lookback1 = input.int(150, "Moving Average Period", minval = 4, maxval = 4999, step = 1)
 
 ma_1(source1, length1, type) =>
     switch type
