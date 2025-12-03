@@ -1,20 +1,26 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © LvNThL
 
-//@version=5
+//@version=6
 indicator("High/Low", overlay = true)
+import TradingView/ta/7
 
-_lookback1 = input.int(150, "Moving Average Period", minval = 4, maxval = 4999, step = 1)
+_lookback1 = input.int(200, "Moving Average Period", minval = 4, maxval = 4999, step = 1)
 
 ma_1(source1, length1, type) =>
     switch type
         "SMA" => ta.sma(source1, length1)
         "EMA" => ta.ema(source1, length1)
-        "SMMA (RMA)" => ta.rma(source1, length1)
-        "WMA" => ta.wma(source1, length1)
+        "RMA" => ta.rma(source1, length1)
         "VWMA" => ta.vwma(source1, length1)
+        "DEMA" => ta.dema(source1, length1)
+        "TEMA" => ta.tema(source1, length1)
+        "FRAMA" => ta.frama(source1, length1)      
+        "HMA" => ta.hma(source1, length1)
+        "WMA" => ta.wma(source1, length1)
 
-typeMA = input.string("SMA", "Moving Average Type", ["SMA", "EMA", "SMMA (RMA)", "WMA", "VWMA"])
+typeMA = input.string("SMA", "Moving Average Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
+bool _darkmode = input.bool(true, "Darkmode")
 
 _highs = array.new<float>(0)
 _lows = array.new<float>(0)
@@ -29,5 +35,8 @@ _avghigh = array.avg(_highs)
 _avglow = array.avg(_lows)
 _median1 = math.avg(_avghigh,_avglow)
 _median2 = ma_1(math.avg(_avghigh,_avglow), _lookback1, typeMA)
+_trigger = open > _median2
 
-plot(_median2, color = open > _median2 ? #00ff80 : #af00ff, linewidth = 4)
+plot(_darkmode ?  _median2 : na, color = _trigger ?  #00ff80 : #af00ff, linewidth = 4)
+plot(_darkmode ? na : _median2, color = _trigger ? #908f9d : #000000, linewidth = 4)
+
