@@ -5,19 +5,19 @@
 indicator("High/Low", overlay = true)
 import TradingView/ta/7
 
-_lookback1 = input.int(200, "Moving Average Period", minval = 4, maxval = 4999, step = 1)
+_lookback = input.int(200, "Moving Average Period", minval = 4, maxval = 4999, step = 1)
 
-ma_1(source1, length1, type) =>
+ma_1(source, length, type) =>
     switch type
-        "SMA" => ta.sma(source1, length1)
-        "EMA" => ta.ema(source1, length1)
-        "RMA" => ta.rma(source1, length1)
-        "VWMA" => ta.vwma(source1, length1)
-        "DEMA" => ta.dema(source1, length1)
-        "TEMA" => ta.tema(source1, length1)
-        "FRAMA" => ta.frama(source1, length1)      
-        "HMA" => ta.hma(source1, length1)
-        "WMA" => ta.wma(source1, length1)
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "RMA" => ta.rma(source, length)
+        "VWMA" => ta.vwma(source, length)
+        "DEMA" => ta.dema(source, length)
+        "TEMA" => ta.tema(source, length)
+        "FRAMA" => ta.frama(source, length)      
+        "HMA" => ta.hma(source, length)
+        "WMA" => ta.wma(source, length)
 
 typeMA = input.string("SMA", "Moving Average Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
 bool _darkmode = input.bool(true, "Darkmode")
@@ -25,7 +25,7 @@ bool _darkmode = input.bool(true, "Darkmode")
 _highs = array.new<float>(0)
 _lows = array.new<float>(0)
 
-for i = 0 to _lookback1
+for i = 0 to _lookback
     array.push(_highs, high[i])
     array.push(_lows, low[i])
 array.sort(_highs, order.descending)
@@ -33,10 +33,9 @@ array.sort(_lows, order.ascending)
 
 _avghigh = array.avg(_highs)
 _avglow = array.avg(_lows)
-_median1 = math.avg(_avghigh,_avglow)
-_median2 = ma_1(math.avg(_avghigh,_avglow), _lookback1, typeMA)
-_trigger = open > _median2
+_median = ma_1(math.avg(_avghigh,_avglow), _lookback, typeMA)
+_trigger = open > _median
 
-plot(_darkmode ?  _median2 : na, color = _trigger ?  #00ff80 : #af00ff, linewidth = 4)
-plot(_darkmode ? na : _median2, color = _trigger ? #908f9d : #000000, linewidth = 4)
+plot(_darkmode ?  _median : na, color = _trigger ?  #00ff80 : #af00ff, linewidth = 4)
+plot(_darkmode ? na : _median, color = _trigger ? #908f9d : #000000, linewidth = 4)
 
