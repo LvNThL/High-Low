@@ -21,7 +21,6 @@ ma_1(source, length, type) =>
         "WMA" => ta.wma(source, length)
 
 typeMA = input.string("SMA", "Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
-// bool _showfib = input.bool(true, "Show Fibonacci Levels")
 bool _darkmode = input.bool(true, "Darkmode")
 
 _highs = array.new<float>(0)
