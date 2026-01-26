@@ -38,20 +38,6 @@ _avglow = array.avg(_lows)
 _median = ma_1(math.avg(_avghigh,_avglow), _lookback, typeMA)
 _trigger = open > _median
 
-// Fibonnaci Levels
-// _range = _avghigh - _avglow
-// _level000 = _avghigh
-// _level236 = _avghigh - _range * 0.236
-// _level382 = _avghigh - _range * 0.382
-// _level500 = _avghigh - _range * 0.5
-// _level618 = _avghigh - _range * 0.618
-// _level100 = _avglow
-
-// _median2 = ma_1(math.avg(_level236, _level382, _level500, _level618), _lookback, typeMA)
-
 //Plots
 plot(_darkmode ?  _median : na, color = _trigger ?  #00ff80 : #af00ff, linewidth = 2)
 plot(_darkmode ? na : _median, color = _trigger ? #908f9d : #000000, linewidth = 2)
-
-// plot(_darkmode ?  _median2 : na, color = _trigger ?  #00ff80 : #af00ff, linewidth = 2)
-// plot(_darkmode ? na : _median2, color = _trigger ? #908f9d : #000000, linewidth = 2)
