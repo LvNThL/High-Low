@@ -5,6 +5,20 @@
 indicator("High/Low", overlay = true)
 import TradingView/ta/7
 
+ma_1(source, length, type) =>
+    switch type
+        "SMA" => ta.sma(source, length)
+        "EMA" => ta.ema(source, length)
+        "RMA" => ta.rma(source, length)
+        "VWMA" => ta.vwma(source, length)
+        "DEMA" => ta.dema(source, length)
+        "TEMA" => ta.tema(source, length)
+        "FRAMA" => ta.frama(source, length)      
+        "HMA" => ta.hma(source, length)
+        "WMA" => ta.wma(source, length)
+
+typeMA = input.string("SMA", "Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
+
 //Moving Average
 _lookback1 = input.int(5, "Period", minval = 4, maxval = 4999, step = 1)
 _lookback2 = input.int(8, "Period 2", minval = 4, maxval = 4999, step = 1)
@@ -17,23 +31,8 @@ _lookback8 = input.int(144, "Period 8", minval = 4, maxval = 4999, step = 1)
 _lookback9 = input.int(233, "Period 9", minval = 4, maxval = 4999, step = 1)
 _lookback10 = input.int(377, "Period 10", minval = 4, maxval = 4999, step = 1)
 _lookback11 = input.int(610, "Period 11", minval = 4, maxval = 4999, step = 1)
-_darkmode = input.bool(true, "Darkmode")
 _thickness = input.int(1, "Line Thickness", minval = 1, maxval = 4, step = 1)
-
-ma_1(source, length, type) =>
-    switch type
-        "SMA" => ta.sma(source, length)
-        "EMA" => ta.ema(source, length)
-        "RMA" => ta.rma(source, length)
-        "VWMA" => ta.vwma(source, length)
-        "DEMA" => ta.dema(source, length)
-        "TEMA" => ta.tema(source, length)
-        "FRAMA" => ta.frama(source, length)      
-        "HMA" => ta.hma(source, length)
-        "WMA" => ta.wma(source, length)
-        
-
-typeMA = input.string("SMA", "Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
+_darkmode = input.bool(true, "Darkmode")
 
 _highs = array.new<float>(0)
 _lows = array.new<float>(0)
