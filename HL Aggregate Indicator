@@ -5,93 +5,117 @@
 indicator("High/Low", overlay = true)
 import TradingView/ta/7
 
-ma_1(source, length, type) =>
-    switch type
-        "SMA" => ta.sma(source, length)
-        "EMA" => ta.ema(source, length)
-        "RMA" => ta.rma(source, length)
-        "VWMA" => ta.vwma(source, length)
-        "DEMA" => ta.dema(source, length)
-        "TEMA" => ta.tema(source, length)
-        "FRAMA" => ta.frama(source, length)      
-        "HMA" => ta.hma(source, length)
-        "WMA" => ta.wma(source, length)
+// ═══════════════════════════════════════════════════════════════════════════════
+// INPUTS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-typeMA = input.string("SMA", "Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
-
-//Moving Average
-_lookback1 = input.int(5, "Period", minval = 4, maxval = 4999, step = 1)
-_lookback2 = input.int(8, "Period 2", minval = 4, maxval = 4999, step = 1)
-_lookback3 = input.int(13, "Period 3", minval = 4, maxval = 4999, step = 1)
-_lookback4 = input.int(21, "Period 4", minval = 4, maxval = 4999, step = 1)
-_lookback5 = input.int(34, "Period 5", minval = 4, maxval = 4999, step = 1)
-_lookback6 = input.int(55, "Period 6", minval = 4, maxval = 4999, step = 1)
-_lookback7 = input.int(89, "Period 7", minval = 4, maxval = 4999, step = 1)
-_lookback8 = input.int(144, "Period 8", minval = 4, maxval = 4999, step = 1)
-_lookback9 = input.int(233, "Period 9", minval = 4, maxval = 4999, step = 1)
-_lookback10 = input.int(377, "Period 10", minval = 4, maxval = 4999, step = 1)
-_lookback11 = input.int(610, "Period 11", minval = 4, maxval = 4999, step = 1)
+typeMA = input.string("SMA", "MA Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
+colorTheme = input.string("Neon", "Color Theme", ["Neon", "Ocean", "Sunset", "Forest", "Monochrome", "Classic Light"])
 _thickness = input.int(1, "Line Thickness", minval = 1, maxval = 4, step = 1)
-_darkmode = input.bool(true, "Darkmode")
 
-_highs = array.new<float>(0)
-_lows = array.new<float>(0)
+// Lookback Periods (Fibonacci sequence by default)
+_lb1  = input.int(5,   "Period 1",  minval = 4, maxval = 4999)
+_lb2  = input.int(8,   "Period 2",  minval = 4, maxval = 4999)
+_lb3  = input.int(13,  "Period 3",  minval = 4, maxval = 4999)
+_lb4  = input.int(21,  "Period 4",  minval = 4, maxval = 4999)
+_lb5  = input.int(34,  "Period 5",  minval = 4, maxval = 4999)
+_lb6  = input.int(55,  "Period 6",  minval = 4, maxval = 4999)
+_lb7  = input.int(89,  "Period 7",  minval = 4, maxval = 4999)
+_lb8  = input.int(144, "Period 8",  minval = 4, maxval = 4999)
+_lb9  = input.int(233, "Period 9",  minval = 4, maxval = 4999)
+_lb10 = input.int(377, "Period 10", minval = 4, maxval = 4999)
+_lb11 = input.int(610, "Period 11", minval = 4, maxval = 4999)
 
-get_median(lookback1, typeMA) =>
+// ═══════════════════════════════════════════════════════════════════════════════
+// COLOR THEME FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+getColors(theme) =>
+    switch theme
+        "Neon"           => [#00ff80, #af00ff]  // Green / Purple
+        "Ocean"          => [#00bfff, #0047ab]  // Sky Blue / Cobalt
+        "Sunset"         => [#ff6b35, #c41e3a]  // Orange / Cardinal
+        "Forest"         => [#32cd32, #228b22]  // Lime Green / Forest Green
+        "Monochrome"     => [#d3d3d3, #696969]  // Light Gray / Dim Gray
+        "Classic Light"  => [#908f9d, #000000]  // Gray / Black
+        => [#00ff80, #af00ff]
+
+[bullColor, bearColor] = getColors(colorTheme)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MOVING AVERAGE FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+ma_calc(source, length, type) =>
+    switch type
+        "SMA"   => ta.sma(source, length)
+        "EMA"   => ta.ema(source, length)
+        "RMA"   => ta.rma(source, length)
+        "VWMA"  => ta.vwma(source, length)
+        "DEMA"  => ta.dema(source, length)
+        "TEMA"  => ta.tema(source, length)
+        "FRAMA" => ta.frama(source, length)
+        "HMA"   => ta.hma(source, length)
+        "WMA"   => ta.wma(source, length)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MEDIAN CALCULATION FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+get_median(lookback, maType) =>
+    var float[] _highs = array.new<float>(0)
+    var float[] _lows = array.new<float>(0)
     _highs.clear()
     _lows.clear()
-    for i = 0 to lookback1
+    for i = 0 to lookback
         array.push(_highs, high[i])
         array.push(_lows, low[i])
     array.sort(_highs, order.descending)
     array.sort(_lows, order.ascending)
     _avghigh = array.avg(_highs)
     _avglow = array.avg(_lows)
-    ma_1(math.avg(_avghigh,_avglow), lookback1, typeMA)
+    ma_calc(math.avg(_avghigh, _avglow), lookback, maType)
 
-median1 = get_median(_lookback1, typeMA)
-median2 = get_median(_lookback2, typeMA)
-median3 = get_median(_lookback3, typeMA)
-median4 = get_median(_lookback4, typeMA)
-median5 = get_median(_lookback5, typeMA)
-median6 = get_median(_lookback6, typeMA)
-median7 = get_median(_lookback7, typeMA)
-median8 = get_median(_lookback8, typeMA)
-median9 = get_median(_lookback9, typeMA)
-median10 = get_median(_lookback10, typeMA)
-median11 = get_median(_lookback11, typeMA)
-_trigger1 = open > median1
-_trigger2 = open > median2
-_trigger3 = open > median3
-_trigger4 = open > median4
-_trigger5 = open > median5
-_trigger6 = open > median6
-_trigger7 = open > median7
-_trigger8 = open > median8
-_trigger9 = open > median9
-_trigger10 = open > median10
-_trigger11 = open > median11
+// ═══════════════════════════════════════════════════════════════════════════════
+// TRIGGER FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
 
-//Plots
-plot(_darkmode ?  median1 : na, color = _trigger1 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median1, color = _trigger1 ? #908f9d : #000000, linewidth = _thickness)
-plot(_darkmode ?  median2 : na, color = _trigger2 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median2, color = _trigger2 ? #8f9d90 : #000000, linewidth = _thickness)
-plot(_darkmode ?  median3 : na, color = _trigger3 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median3, color = _trigger3 ? #9d908f : #000000, linewidth = _thickness)
-plot(_darkmode ?  median4 : na, color = _trigger4 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median4, color = _trigger4 ? #908f9d : #000000, linewidth = _thickness)
-plot(_darkmode ?  median5 : na, color = _trigger5 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median5, color = _trigger5 ? #908f9d : #000000, linewidth = _thickness)
-plot(_darkmode ?  median6 : na, color = _trigger6 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median6, color = _trigger6 ? #8f9d90 : #000000, linewidth = _thickness)
-plot(_darkmode ?  median7 : na, color = _trigger7 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median7, color = _trigger7 ? #9d908f : #000000, linewidth = _thickness)
-plot(_darkmode ?  median8 : na, color = _trigger8 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median8, color = _trigger8 ? #908f9d : #000000, linewidth = _thickness)
-plot(_darkmode ?  median9 : na, color = _trigger9 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median9, color = _trigger9 ? #908f9d : #000000, linewidth = _thickness)
-plot(_darkmode ?  median10 : na, color = _trigger10 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median10, color = _trigger10 ? #908f9d : #000000, linewidth = _thickness)
-plot(_darkmode ?  median11 : na, color = _trigger11 ?  #00ff80 : #af00ff, linewidth = _thickness)
-plot(_darkmode ? na : median11, color = _trigger11 ? #908f9d : #000000, linewidth = _thickness)
+get_trigger(median) => open > median
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLOT COLOR FUNCTION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+get_plot_color(trigger, bullCol, bearCol) => trigger ? bullCol : bearCol
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALCULATE MEDIANS & TRIGGERS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+median1  = get_median(_lb1,  typeMA)
+median2  = get_median(_lb2,  typeMA)
+median3  = get_median(_lb3,  typeMA)
+median4  = get_median(_lb4,  typeMA)
+median5  = get_median(_lb5,  typeMA)
+median6  = get_median(_lb6,  typeMA)
+median7  = get_median(_lb7,  typeMA)
+median8  = get_median(_lb8,  typeMA)
+median9  = get_median(_lb9,  typeMA)
+median10 = get_median(_lb10, typeMA)
+median11 = get_median(_lb11, typeMA)
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PLOTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+plot(median1,  color = get_plot_color(get_trigger(median1),  bullColor, bearColor), linewidth = _thickness, title = "MA 1")
+plot(median2,  color = get_plot_color(get_trigger(median2),  bullColor, bearColor), linewidth = _thickness, title = "MA 2")
+plot(median3,  color = get_plot_color(get_trigger(median3),  bullColor, bearColor), linewidth = _thickness, title = "MA 3")
+plot(median4,  color = get_plot_color(get_trigger(median4),  bullColor, bearColor), linewidth = _thickness, title = "MA 4")
+plot(median5,  color = get_plot_color(get_trigger(median5),  bullColor, bearColor), linewidth = _thickness, title = "MA 5")
+plot(median6,  color = get_plot_color(get_trigger(median6),  bullColor, bearColor), linewidth = _thickness, title = "MA 6")
+plot(median7,  color = get_plot_color(get_trigger(median7),  bullColor, bearColor), linewidth = _thickness, title = "MA 7")
+plot(median8,  color = get_plot_color(get_trigger(median8),  bullColor, bearColor), linewidth = _thickness, title = "MA 8")
+plot(median9,  color = get_plot_color(get_trigger(median9),  bullColor, bearColor), linewidth = _thickness, title = "MA 9")
+plot(median10, color = get_plot_color(get_trigger(median10), bullColor, bearColor), linewidth = _thickness, title = "MA 10")
+plot(median11, color = get_plot_color(get_trigger(median11), bullColor, bearColor), linewidth = _thickness, title = "MA 11")
