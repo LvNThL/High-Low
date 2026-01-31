@@ -6,7 +6,19 @@ indicator("High/Low", overlay = true)
 import TradingView/ta/7
 
 //Moving Average
-_lookback = input.int(200, "Period", minval = 4, maxval = 4999, step = 1)
+_lookback1 = input.int(5, "Period", minval = 4, maxval = 4999, step = 1)
+_lookback2 = input.int(8, "Period 2", minval = 4, maxval = 4999, step = 1)
+_lookback3 = input.int(13, "Period 3", minval = 4, maxval = 4999, step = 1)
+_lookback4 = input.int(21, "Period 4", minval = 4, maxval = 4999, step = 1)
+_lookback5 = input.int(34, "Period 5", minval = 4, maxval = 4999, step = 1)
+_lookback6 = input.int(55, "Period 6", minval = 4, maxval = 4999, step = 1)
+_lookback7 = input.int(89, "Period 7", minval = 4, maxval = 4999, step = 1)
+_lookback8 = input.int(144, "Period 8", minval = 4, maxval = 4999, step = 1)
+_lookback9 = input.int(233, "Period 9", minval = 4, maxval = 4999, step = 1)
+_lookback10 = input.int(377, "Period 10", minval = 4, maxval = 4999, step = 1)
+_lookback11 = input.int(610, "Period 11", minval = 4, maxval = 4999, step = 1)
+_darkmode = input.bool(true, "Darkmode")
+_thickness = input.int(1, "Line Thickness", minval = 1, maxval = 4, step = 1)
 
 ma_1(source, length, type) =>
     switch type
@@ -19,24 +31,68 @@ ma_1(source, length, type) =>
         "FRAMA" => ta.frama(source, length)      
         "HMA" => ta.hma(source, length)
         "WMA" => ta.wma(source, length)
+        
 
 typeMA = input.string("SMA", "Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
-bool _darkmode = input.bool(true, "Darkmode")
 
 _highs = array.new<float>(0)
 _lows = array.new<float>(0)
 
-for i = 0 to _lookback
-    array.push(_highs, high[i])
-    array.push(_lows, low[i])
-array.sort(_highs, order.descending)
-array.sort(_lows, order.ascending)
+get_median(lookback1, typeMA) =>
+    _highs.clear()
+    _lows.clear()
+    for i = 0 to lookback1
+        array.push(_highs, high[i])
+        array.push(_lows, low[i])
+    array.sort(_highs, order.descending)
+    array.sort(_lows, order.ascending)
+    _avghigh = array.avg(_highs)
+    _avglow = array.avg(_lows)
+    ma_1(math.avg(_avghigh,_avglow), lookback1, typeMA)
 
-_avghigh = array.avg(_highs)
-_avglow = array.avg(_lows)
-_median = ma_1(math.avg(_avghigh,_avglow), _lookback, typeMA)
-_trigger = open > _median
+median1 = get_median(_lookback1, typeMA)
+median2 = get_median(_lookback2, typeMA)
+median3 = get_median(_lookback3, typeMA)
+median4 = get_median(_lookback4, typeMA)
+median5 = get_median(_lookback5, typeMA)
+median6 = get_median(_lookback6, typeMA)
+median7 = get_median(_lookback7, typeMA)
+median8 = get_median(_lookback8, typeMA)
+median9 = get_median(_lookback9, typeMA)
+median10 = get_median(_lookback10, typeMA)
+median11 = get_median(_lookback11, typeMA)
+_trigger1 = open > median1
+_trigger2 = open > median2
+_trigger3 = open > median3
+_trigger4 = open > median4
+_trigger5 = open > median5
+_trigger6 = open > median6
+_trigger7 = open > median7
+_trigger8 = open > median8
+_trigger9 = open > median9
+_trigger10 = open > median10
+_trigger11 = open > median11
 
 //Plots
-plot(_darkmode ?  _median : na, color = _trigger ?  #00ff80 : #af00ff, linewidth = 2)
-plot(_darkmode ? na : _median, color = _trigger ? #908f9d : #000000, linewidth = 2)
+plot(_darkmode ?  median1 : na, color = _trigger1 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median1, color = _trigger1 ? #908f9d : #000000, linewidth = _thickness)
+plot(_darkmode ?  median2 : na, color = _trigger2 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median2, color = _trigger2 ? #8f9d90 : #000000, linewidth = _thickness)
+plot(_darkmode ?  median3 : na, color = _trigger3 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median3, color = _trigger3 ? #9d908f : #000000, linewidth = _thickness)
+plot(_darkmode ?  median4 : na, color = _trigger4 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median4, color = _trigger4 ? #908f9d : #000000, linewidth = _thickness)
+plot(_darkmode ?  median5 : na, color = _trigger5 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median5, color = _trigger5 ? #908f9d : #000000, linewidth = _thickness)
+plot(_darkmode ?  median6 : na, color = _trigger6 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median6, color = _trigger6 ? #8f9d90 : #000000, linewidth = _thickness)
+plot(_darkmode ?  median7 : na, color = _trigger7 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median7, color = _trigger7 ? #9d908f : #000000, linewidth = _thickness)
+plot(_darkmode ?  median8 : na, color = _trigger8 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median8, color = _trigger8 ? #908f9d : #000000, linewidth = _thickness)
+plot(_darkmode ?  median9 : na, color = _trigger9 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median9, color = _trigger9 ? #908f9d : #000000, linewidth = _thickness)
+plot(_darkmode ?  median10 : na, color = _trigger10 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median10, color = _trigger10 ? #908f9d : #000000, linewidth = _thickness)
+plot(_darkmode ?  median11 : na, color = _trigger11 ?  #00ff80 : #af00ff, linewidth = _thickness)
+plot(_darkmode ? na : median11, color = _trigger11 ? #908f9d : #000000, linewidth = _thickness)
