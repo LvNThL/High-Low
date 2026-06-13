@@ -2,52 +2,168 @@
 // © LvNThL
 
 //@version=6
-indicator("High/Low", overlay = true)
+indicator("Shadow Refinery Compound", "SRC", overlay=true, max_lines_count=100)
 import TradingView/ta/7
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// INPUTS
-// ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════
+// 1. INPUTS
+// ═══════════════════════════════════════════════════════════════════════
 
-typeMA = input.string("SMA", "MA Type", ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"])
-colorTheme = input.string("Neon", "Color Theme", ["Neon", "Ocean", "Sunset", "Forest", "Monochrome", "Classic Light"])
-_thickness = input.int(1, "Line Thickness", minval = 1, maxval = 4, step = 1)
+// ─ COLOR THEME ─
+string colorTheme = input.string(
+    "Neon",
+    "Color Theme",
+    ["Neon", "Azure Trade", "Sage & Clay", "Slate Pro", "Twilight Modern", "Monochrome Pro"],
+    tooltip="Unified color theme for all visual elements (MAs, Bollinger Bands, Regression Channel).",
+    group="Color Theme"
+)
 
-// Lookback Periods (Fibonacci sequence by default)
-_lb1  = input.int(5,   "Period 1",  minval = 4, maxval = 4999)
-_lb2  = input.int(8,   "Period 2",  minval = 4, maxval = 4999)
-_lb3  = input.int(13,  "Period 3",  minval = 4, maxval = 4999)
-_lb4  = input.int(21,  "Period 4",  minval = 4, maxval = 4999)
-_lb5  = input.int(34,  "Period 5",  minval = 4, maxval = 4999)
-_lb6  = input.int(55,  "Period 6",  minval = 4, maxval = 4999)
-_lb7  = input.int(89,  "Period 7",  minval = 4, maxval = 4999)
-_lb8  = input.int(144, "Period 8",  minval = 4, maxval = 4999)
-_lb9  = input.int(233, "Period 9",  minval = 4, maxval = 4999)
-_lb10 = input.int(377, "Period 10", minval = 4, maxval = 4999)
-_lb11 = input.int(610, "Period 11", minval = 4, maxval = 4999)
+// ─ MOVING AVERAGES ─
+string maType = input.string(
+    "SMA",
+    "MA Type",
+    ["SMA", "EMA", "RMA", "VWMA", "DEMA", "TEMA", "FRAMA", "HMA", "WMA"],
+    group="Moving Averages"
+)
+bool _showMAS = input.bool(
+    true,
+    "Show Moving Averages",
+    group="Moving Averages"
+)
+bool simplifiedMAs = input.bool(
+    true,
+    "Show Fewer Moving Averages",
+    tooltip="Show only MA 1, MA 2, MA 5, and MA 11.",
+    group="Moving Averages"
+)
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// COLOR THEME FUNCTION
-// ═══════════════════════════════════════════════════════════════════════════════
+int lookback1  = 5
+int lookback2  = 6
+int lookback3  = 13
+int lookback4  = 21
+int lookback5  = 34
+int lookback6  = 55
+int lookback7  = 89
+int lookback8  = 144
+int lookback9  = 233
+int lookback10 = 377
+int lookback11 = 610
 
-getColors(theme) =>
+// ─ BOLLINGER BANDS ─
+float bollingerStdDev = input.float(
+    4.0,
+    "Standard Deviation",
+    minval=0.001,
+    maxval=50,
+    group="Bollinger Bands"
+)
+bool showBollingerBands = input.bool(
+    true,
+    "Show Bollinger Bands",
+    group="Bollinger Bands"
+)
+bool useLogBollinger = input.bool(
+    true,
+    "Use Logarithmic Scale",
+    tooltip="Enable this if your chart is set to a Logarithmic scale.",
+    group="Bollinger Bands"
+)
+
+// ─ LINEAR REGRESSION CHANNEL ─
+int futureExtension = input.int(
+    0,
+    "Forward Extension Length",
+    minval=0,
+    maxval=200,
+    step=5,
+    tooltip="Number of bars to project the channel into the future.",
+    group="Linear Regression Channel"
+)
+bool showLRC = input.bool(
+    true,
+    "Show Linear Regression Channel",
+    group="Linear Regression Channel"
+)
+bool useLogScale = input.bool(
+    true,
+    "Use Logarithmic Scale",
+    tooltip="Enable this if your chart is set to a Logarithmic scale.",
+    group="Linear Regression Channel"
+)
+bool showHUD = input.bool(
+    true,
+    "Show Trend Strength HUD",
+    tooltip="Displays the R², P-Value, and Channel Width table on the chart.",
+    group="Linear Regression Channel"
+)
+
+// ─ VISIBLE HIGH / LOW TRACKING ─
+bool showVisibleHL = input.bool(
+    true,
+    "Track Visible High/Low",
+    group="Visible High/Low Tracking"
+)
+// - LINE THICKNESS -
+int lineThickness = input.int(
+    1,
+    "Line Thickness",
+    minval=1,
+    maxval=4,
+    step=1,
+    group="Line Thickness"
+)
+
+// ═══════════════════════════════════════════════════════════════════════
+// 2. COLOR PALETTE & UTILITIES
+// ═══════════════════════════════════════════════════════════════════════
+getThemeColors(string theme) =>
     switch theme
-        "Neon"           => [#00ff80, #af00ff]  // Green / Purple
-        "Ocean"          => [#00bfff, #0047ab]  // Sky Blue / Cobalt
-        "Sunset"         => [#ff6b35, #c41e3a]  // Orange / Cardinal
-        "Forest"         => [#32cd32, #228b22]  // Lime Green / Forest Green
-        "Monochrome"     => [#d3d3d3, #696969]  // Light Gray / Dim Gray
-        "Classic Light"  => [#908f9d, #000000]  // Gray / Black
-        => [#00ff80, #af00ff]
+        "Neon"            => [#00ff80, #af00ff, color.new(#ffffff, 30)]
+        "Azure Trade"     => [#0EA5E9, #F97316, color.new(#BDE0FE, 30)]
+        "Sage & Clay"     => [#6BA82E, #D97706, color.new(#D7E5B4, 30)]
+        "Slate Pro"       => [#3B82F6, #EF4444, color.new(#DBEAFE, 30)]
+        "Twilight Modern" => [#8B5CF6, #06B6D4, color.new(#E9D5FF, 30)]
+        => [#64748B, #1E293B, color.new(#CBD5E1, 30)]
 
-[bullColor, bearColor] = getColors(colorTheme)
+[maBullColor, maBearColor, maMidColor] = getThemeColors(colorTheme)
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MOVING AVERAGE FUNCTION
-// ═══════════════════════════════════════════════════════════════════════════════
+[bbBullColor, bbBearColor, bbMidColor] = getThemeColors(colorTheme)
 
-ma_calc(source, length, type) =>
-    switch type
+[regrBullColor, regrBearColor, regrMidColor] = getThemeColors(colorTheme)
+
+getBBFillColor(string theme) =>
+    switch theme
+        "Neon"            => color.new(#ffffff, 95)
+        "Azure Trade"     => color.new(#BDE0FE, 95)
+        "Sage & Clay"     => color.new(#D7E5B4, 95)
+        "Slate Pro"       => color.new(#DBEAFE, 95)
+        "Twilight Modern" => color.new(#E9D5FF, 95)
+        => color.new(#CBD5E1, 95)
+
+bbFillColor = getBBFillColor(colorTheme)
+
+safeLog(float value) =>
+    math.log(math.max(value, 1e-15))
+
+safeExp(float value) =>
+    math.exp(math.min(value, 100.0))
+
+isBullish(float median) =>
+    open > median
+
+getPlotColor(float median) =>
+    isBullish(median) ? maBullColor : maBearColor
+
+getBBPlotColor(float median) =>
+    isBullish(median) ? bbBullColor : bbBearColor
+
+thinLineWidth = math.max(lineThickness - 1, 1)
+
+// ═══════════════════════════════════════════════════════════════════════
+// 3. MOVING AVERAGE CALCULATIONS
+// ═══════════════════════════════════════════════════════════════════════
+maCalc(float source, int length, string method) =>
+    switch method
         "SMA"   => ta.sma(source, length)
         "EMA"   => ta.ema(source, length)
         "RMA"   => ta.rma(source, length)
@@ -58,64 +174,249 @@ ma_calc(source, length, type) =>
         "HMA"   => ta.hma(source, length)
         "WMA"   => ta.wma(source, length)
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// MEDIAN CALCULATION FUNCTION
-// ═══════════════════════════════════════════════════════════════════════════════
+medianMA(int period) =>
+    float avgHigh = ta.sma(high, period + 1)
+    float avgLow  = ta.sma(low, period + 1)
+    maCalc(math.avg(avgHigh, avgLow), period, maType)
 
-get_median(lookback, maType) =>
-    var float[] _highs = array.new<float>(0)
-    var float[] _lows = array.new<float>(0)
-    _highs.clear()
-    _lows.clear()
-    for i = 0 to lookback
-        array.push(_highs, high[i])
-        array.push(_lows, low[i])
-    array.sort(_highs, order.descending)
-    array.sort(_lows, order.ascending)
-    _avghigh = array.avg(_highs)
-    _avglow = array.avg(_lows)
-    ma_calc(math.avg(_avghigh, _avglow), lookback, maType)
+float median1  = medianMA(lookback1)
+float median2  = medianMA(lookback2)
+float median3  = medianMA(lookback3)
+float median4  = medianMA(lookback4)
+float median5  = medianMA(lookback5)
+float median6  = medianMA(lookback6)
+float median7  = medianMA(lookback7)
+float median8  = medianMA(lookback8)
+float median9  = medianMA(lookback9)
+float median10 = medianMA(lookback10)
+float median11 = medianMA(lookback11)
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TRIGGER FUNCTION
-// ═══════════════════════════════════════════════════════════════════════════════
+float bollingerDeviation = useLogBollinger ? ta.stdev(safeLog(close), lookback11) : ta.stdev(close, lookback11)
+float bollingerUpper = useLogBollinger ? safeExp(safeLog(median11) + bollingerStdDev * bollingerDeviation) : median11 + bollingerStdDev * bollingerDeviation
+float bollingerLower = useLogBollinger ? safeExp(safeLog(median11) - bollingerStdDev * bollingerDeviation) : median11 - bollingerStdDev * bollingerDeviation
 
-get_trigger(median) => open > median
+// ═══════════════════════════════════════════════════════════════════════
+// 4. REGRESSION & STATISTICS
+// ═══════════════════════════════════════════════════════════════════════
+approximateErf(float x) =>
+    float sign = x < 0 ? -1.0 : 1.0
+    float absX = math.abs(x)
+    float t = 1.0 / (1.0 + 0.3275911 * absX)
+    float polynomial = (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592)
+    float y = 1.0 - polynomial * t * math.exp(math.max(-100.0, -absX * absX))
+    sign * y
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PLOT COLOR FUNCTION
-// ═══════════════════════════════════════════════════════════════════════════════
+calculateVisibleRegression(int leftBar, int rightBar, bool logScaleMode) =>
+    int length = rightBar - leftBar + 1
+    int barsToRight = bar_index - rightBar
 
-get_plot_color(trigger, bullCol, bearCol) => trigger ? bullCol : bearCol
+    float slope = 0.0
+    float upperIntercept = close
+    float lowerIntercept = close
+    float medianIntercept = close
+    float rSquaredPercent = 0.0
+    float pValue = 1.0
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// CALCULATE MEDIANS & TRIGGERS
-// ═══════════════════════════════════════════════════════════════════════════════
+    if length > 1
+        float sumX = 0.0
+        float sumY = 0.0
+        float sumXY = 0.0
+        float sumX2 = 0.0
+        float sumY2 = 0.0
 
-median1  = get_median(_lb1,  typeMA)
-median2  = get_median(_lb2,  typeMA)
-median3  = get_median(_lb3,  typeMA)
-median4  = get_median(_lb4,  typeMA)
-median5  = get_median(_lb5,  typeMA)
-median6  = get_median(_lb6,  typeMA)
-median7  = get_median(_lb7,  typeMA)
-median8  = get_median(_lb8,  typeMA)
-median9  = get_median(_lb9,  typeMA)
-median10 = get_median(_lb10, typeMA)
-median11 = get_median(_lb11, typeMA)
+        for i = 0 to length - 1
+            int barOffset = math.max(0, barsToRight + i)
+            float rawY = close[barOffset]
+            float y = logScaleMode ? safeLog(rawY) : rawY
+            float x = float(length - 1 - i)
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// PLOTS
-// ═══════════════════════════════════════════════════════════════════════════════
+            sumX  += x
+            sumY  += y
+            sumXY += x * y
+            sumX2 += x * x
+            sumY2 += y * y
 
-plot(median1,  color = get_plot_color(get_trigger(median1),  bullColor, bearColor), linewidth = _thickness, title = "MA 1")
-plot(median2,  color = get_plot_color(get_trigger(median2),  bullColor, bearColor), linewidth = _thickness, title = "MA 2")
-plot(median3,  color = get_plot_color(get_trigger(median3),  bullColor, bearColor), linewidth = _thickness, title = "MA 3")
-plot(median4,  color = get_plot_color(get_trigger(median4),  bullColor, bearColor), linewidth = _thickness, title = "MA 4")
-plot(median5,  color = get_plot_color(get_trigger(median5),  bullColor, bearColor), linewidth = _thickness, title = "MA 5")
-plot(median6,  color = get_plot_color(get_trigger(median6),  bullColor, bearColor), linewidth = _thickness, title = "MA 6")
-plot(median7,  color = get_plot_color(get_trigger(median7),  bullColor, bearColor), linewidth = _thickness, title = "MA 7")
-plot(median8,  color = get_plot_color(get_trigger(median8),  bullColor, bearColor), linewidth = _thickness, title = "MA 8")
-plot(median9,  color = get_plot_color(get_trigger(median9),  bullColor, bearColor), linewidth = _thickness, title = "MA 9")
-plot(median10, color = get_plot_color(get_trigger(median10), bullColor, bearColor), linewidth = _thickness, title = "MA 10")
-plot(median11, color = get_plot_color(get_trigger(median11), bullColor, bearColor), linewidth = _thickness, title = "MA 11")
+        float denomX = (length * sumX2) - (sumX * sumX)
+        float denomY = (length * sumY2) - (sumY * sumY)
+
+        slope := denomX > 0 ? ((length * sumXY) - (sumX * sumY)) / denomX : 0.0
+        medianIntercept := length > 0 ? (sumY - slope * sumX) / length : 0.0
+
+        float correlation = (denomX > 0 and denomY > 0) ? ((length * sumXY) - (sumX * sumY)) / math.sqrt(denomX * denomY) : 0.0
+        rSquaredPercent := (correlation * correlation) * 100.0
+
+        if length > 2 and (correlation * correlation) < 0.999999
+            float tStat = math.abs(correlation) * math.sqrt(math.max(0.0, (length - 2) / math.max(1e-10, 1.0 - (correlation * correlation))))
+            pValue := 1.0 - approximateErf(tStat / 1.41421356237)
+        else if (correlation * correlation) >= 0.999999
+            pValue := 0.0
+
+        upperIntercept := medianIntercept
+        lowerIntercept := medianIntercept
+
+        for i = 0 to length - 1
+            int barOffset = math.max(0, barsToRight + i)
+            float x = float(length - 1 - i)
+
+            float highValue = logScaleMode ? safeLog(high[barOffset]) : high[barOffset]
+            float lowValue  = logScaleMode ? safeLog(low[barOffset])  : low[barOffset]
+
+            float highIntercept = highValue - slope * x
+            float lowIntercept  = lowValue  - slope * x
+
+            upperIntercept := highIntercept > upperIntercept ? highIntercept : upperIntercept
+            lowerIntercept := lowIntercept < lowerIntercept ? lowIntercept : lowerIntercept
+
+    [slope, upperIntercept, lowerIntercept, medianIntercept, rSquaredPercent, pValue]
+
+// ═══════════════════════════════════════════════════════════════════════
+// 5. VISIBLE HIGH / LOW TRACKING
+// ═══════════════════════════════════════════════════════════════════════
+var float visibleHigh = na
+var float visibleLow = na
+var int   visibleHighBar = na
+var int   visibleLowBar = na
+
+var line visibleHighLine = na
+var line visibleLowLine  = na
+
+if showVisibleHL and time == chart.left_visible_bar_time
+    visibleHigh := high
+    visibleLow  := low
+    visibleHighBar := bar_index
+    visibleLowBar  := bar_index
+
+if showVisibleHL and time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
+    visibleHigh := na(visibleHigh) or high > visibleHigh ? high : visibleHigh
+    visibleLow  := na(visibleLow) or low < visibleLow ? low : visibleLow
+    visibleHighBar := na(visibleHighBar) or high > visibleHigh ? bar_index : visibleHighBar
+    visibleLowBar  := na(visibleLowBar) or low < visibleLow ? bar_index : visibleLowBar
+
+if barstate.islast and showVisibleHL
+    if not na(visibleHighLine)
+        line.delete(visibleHighLine)
+    if not na(visibleLowLine)
+        line.delete(visibleLowLine)
+
+    visibleHighLine := line.new(
+        visibleHighBar,
+        visibleHigh,
+        visibleHighBar + 1,
+        visibleHigh,
+        xloc=xloc.bar_index,
+        extend=extend.right,
+        color=maBullColor,
+        style=line.style_dashed,
+        width=1
+    )
+
+    visibleLowLine := line.new(
+        visibleLowBar,
+        visibleLow,
+        visibleLowBar + 1,
+        visibleLow,
+        xloc=xloc.bar_index,
+        extend=extend.right,
+        color=maBearColor,
+        style=line.style_dashed,
+        width=1
+    )
+
+// ═══════════════════════════════════════════════════════════════════════
+// 6. PLOTTING
+// ═══════════════════════════════════════════════════════════════════════
+plot(median1,  color=getPlotColor(median1),  linewidth=thinLineWidth,  title="MA 1", display = _showMAS ? display.all : display.none)
+plot(median2,  color=getPlotColor(median2),  linewidth=thinLineWidth,  title="MA 2", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median3,  color=getPlotColor(median3),  linewidth=thinLineWidth,  title="MA 3", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median4,  color=getPlotColor(median4),  linewidth=thinLineWidth,  title="MA 4", display = _showMAS ? display.all : display.none)
+plot(median5,  color=getPlotColor(median5),  linewidth=lineThickness,  title="MA 5", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median6,  color=getPlotColor(median6),  linewidth=thinLineWidth,  title="MA 6", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median7,  color=getPlotColor(median7),  linewidth=thinLineWidth,  title="MA 7", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median8,  color=getPlotColor(median8),  linewidth=thinLineWidth,  title="MA 8", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median9,  color=getPlotColor(median9),  linewidth=thinLineWidth,  title="MA 9", display = _showMAS ? display.all : display.none)
+plot(simplifiedMAs ? na : median10, color=getPlotColor(median10), linewidth=thinLineWidth,  title="MA 10", display = _showMAS ? display.all : display.none)
+plot(median11, color=getBBPlotColor(median11), linewidth=lineThickness,  title="MA 11", display = _showMAS ? display.all : display.none)
+
+p2 = plot(bollingerLower, "BB Lower", color=bbBullColor, display=showBollingerBands ? display.all : display.none, linewidth=lineThickness)
+p1 = plot(bollingerUpper, "BB Upper", color=bbBearColor, display=showBollingerBands ? display.all : display.none, linewidth=lineThickness)
+fill(
+    p1, p2,
+    title="BB Background",
+    color=bbFillColor,
+    display=showBollingerBands ? display.all : display.none
+)
+
+var line liveTrendHigh = na
+var line liveTrendLow = na
+var line liveTrendMiddle = na
+
+var table statsTable = table.new(
+    position.bottom_right,
+    2,
+    3,
+    bgcolor=color.new(color.black, 20),
+    frame_color=color.new(color.gray, 50),
+    frame_width=1,
+    border_color=color.new(color.gray, 80),
+    border_width=1
+)
+
+var int visibleLeftBarIndex = na
+var int visibleRightBarIndex = na
+var int lastViewportLeftTime = na
+
+if chart.left_visible_bar_time != lastViewportLeftTime
+    visibleLeftBarIndex := na
+    lastViewportLeftTime := chart.left_visible_bar_time
+
+if time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
+    if na(visibleLeftBarIndex)
+        visibleLeftBarIndex := bar_index
+    visibleRightBarIndex := bar_index
+
+if barstate.islast and not na(visibleLeftBarIndex) and not na(visibleRightBarIndex)
+    if not na(liveTrendHigh)
+        line.delete(liveTrendHigh)
+        line.delete(liveTrendLow)
+        line.delete(liveTrendMiddle)
+
+    [slope, upperIntercept, lowerIntercept, medianIntercept, strength, pValue] = calculateVisibleRegression(visibleLeftBarIndex, visibleRightBarIndex, useLogScale)
+
+    int startX = visibleLeftBarIndex
+    int endX = visibleRightBarIndex + futureExtension
+
+    float startYHigh = upperIntercept
+    float endYHigh   = slope * (endX - startX) + upperIntercept
+
+    float startYLow  = lowerIntercept
+    float endYLow    = slope * (endX - startX) + lowerIntercept
+
+    float startYMid  = medianIntercept
+    float endYMid    = slope * (endX - startX) + medianIntercept
+
+    if useLogScale
+        startYHigh := safeExp(startYHigh)
+        endYHigh   := safeExp(endYHigh)
+        startYLow  := safeExp(startYLow)
+        endYLow    := safeExp(endYLow)
+        startYMid  := safeExp(startYMid)
+        endYMid    := safeExp(endYMid)
+
+    if showLRC
+        liveTrendHigh := line.new(startX, startYHigh, endX, endYHigh, color=regrBearColor, style=line.style_solid, width=lineThickness)
+        liveTrendLow  := line.new(startX, startYLow,  endX, endYLow,  color=regrBullColor, style=line.style_solid, width=lineThickness)
+        liveTrendMiddle := line.new(startX, startYMid, endX, endYMid, color=regrMidColor, style=line.style_dashed, width=1)
+
+    if showHUD
+        color strengthColor = strength >= 75 ? #00ff00 : strength >= 50 ? #ffff00 : #ff0000
+        table.cell(statsTable, 0, 0, "Trend Power (R²):", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(statsTable, 1, 0, str.tostring(strength, "#.##") + "%", text_color=strengthColor, text_size=size.small, text_halign=text.align_right)
+
+        color pValueColor = pValue <= 0.01 ? #00ff00 : pValue <= 0.05 ? #ffff00 : #ff0000
+        string pValueText = pValue < 0.001 ? "< 0.001" : str.tostring(pValue, "#.###")
+        table.cell(statsTable, 0, 1, "P-Value:", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(statsTable, 1, 1, pValueText, text_color=pValueColor, text_size=size.small, text_halign=text.align_right)
+
+        float channelWidthPct = ((startYHigh - startYLow) / math.max(startYMid, 1e-15)) * 100.0
+        table.cell(statsTable, 0, 2, "Channel Width:", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+        table.cell(statsTable, 1, 2, str.tostring(channelWidthPct, "#.##") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_right)
