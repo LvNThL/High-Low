@@ -70,6 +70,20 @@ bool useLogBollinger = input.bool(
 )
 
 // ─ LINEAR REGRESSION CHANNEL ─
+string lrcCalcMode = input.string(
+    "Visible Range",
+    "Calculation Mode",
+    ["Visible Range", "Fixed Length"],
+    group="Linear Regression Channel",
+    tooltip="Choose whether the channel calculates based on the visible chart area or a specific number of bars."
+)
+int lrcFixedLength = input.int(
+    377,
+    "Fixed Length (Bars)",
+    minval=5,
+    group="Linear Regression Channel",
+    tooltip="Only applies if Calculation Mode is set to 'Fixed Length'."
+)
 int futureExtension = input.int(
     0,
     "Forward Extension Length",
@@ -126,9 +140,7 @@ getThemeColors(string theme) =>
         => [#64748B, #1E293B, color.new(#CBD5E1, 30)]
 
 [maBullColor, maBearColor, maMidColor] = getThemeColors(colorTheme)
-
 [bbBullColor, bbBearColor, bbMidColor] = getThemeColors(colorTheme)
-
 [regrBullColor, regrBearColor, regrMidColor] = getThemeColors(colorTheme)
 
 getBBFillColor(string theme) =>
@@ -374,49 +386,62 @@ if time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
         visibleLeftBarIndex := bar_index
     visibleRightBarIndex := bar_index
 
-if barstate.islast and not na(visibleLeftBarIndex) and not na(visibleRightBarIndex)
-    if not na(liveTrendHigh)
-        line.delete(liveTrendHigh)
-        line.delete(liveTrendLow)
-        line.delete(liveTrendMiddle)
 
-    [slope, upperIntercept, lowerIntercept, medianIntercept, strength, pValue] = calculateVisibleRegression(visibleLeftBarIndex, visibleRightBarIndex, useLogScale)
+if barstate.islast
+    int calcStartX = na
+    int calcEndX = na
 
-    int startX = visibleLeftBarIndex
-    int endX = visibleRightBarIndex + futureExtension
+    if lrcCalcMode == "Visible Range"
+        if not na(visibleLeftBarIndex) and not na(visibleRightBarIndex)
+            calcStartX := visibleLeftBarIndex
+            calcEndX := visibleRightBarIndex
+    else
+        calcStartX := math.max(0, bar_index - lrcFixedLength + 1)
+        calcEndX := bar_index
 
-    float startYHigh = upperIntercept
-    float endYHigh   = slope * (endX - startX) + upperIntercept
+    if not na(calcStartX) and not na(calcEndX)
+        if not na(liveTrendHigh)
+            line.delete(liveTrendHigh)
+            line.delete(liveTrendLow)
+            line.delete(liveTrendMiddle)
 
-    float startYLow  = lowerIntercept
-    float endYLow    = slope * (endX - startX) + lowerIntercept
+        [slope, upperIntercept, lowerIntercept, medianIntercept, strength, pValue] = calculateVisibleRegression(calcStartX, calcEndX, useLogScale)
 
-    float startYMid  = medianIntercept
-    float endYMid    = slope * (endX - startX) + medianIntercept
+        int startX = calcStartX
+        int endX = calcEndX + futureExtension
 
-    if useLogScale
-        startYHigh := safeExp(startYHigh)
-        endYHigh   := safeExp(endYHigh)
-        startYLow  := safeExp(startYLow)
-        endYLow    := safeExp(endYLow)
-        startYMid  := safeExp(startYMid)
-        endYMid    := safeExp(endYMid)
+        float startYHigh = upperIntercept
+        float endYHigh   = slope * (endX - startX) + upperIntercept
 
-    if showLRC
-        liveTrendHigh := line.new(startX, startYHigh, endX, endYHigh, color=regrBearColor, style=line.style_solid, width=lineThickness)
-        liveTrendLow  := line.new(startX, startYLow,  endX, endYLow,  color=regrBullColor, style=line.style_solid, width=lineThickness)
-        liveTrendMiddle := line.new(startX, startYMid, endX, endYMid, color=regrMidColor, style=line.style_dashed, width=1)
+        float startYLow  = lowerIntercept
+        float endYLow    = slope * (endX - startX) + lowerIntercept
 
-    if showHUD
-        color strengthColor = strength >= 75 ? #00ff00 : strength >= 50 ? #ffff00 : #ff0000
-        table.cell(statsTable, 0, 0, "Trend Power (R²):", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-        table.cell(statsTable, 1, 0, str.tostring(strength, "#.##") + "%", text_color=strengthColor, text_size=size.small, text_halign=text.align_right)
+        float startYMid  = medianIntercept
+        float endYMid    = slope * (endX - startX) + medianIntercept
 
-        color pValueColor = pValue <= 0.01 ? #00ff00 : pValue <= 0.05 ? #ffff00 : #ff0000
-        string pValueText = pValue < 0.001 ? "< 0.001" : str.tostring(pValue, "#.###")
-        table.cell(statsTable, 0, 1, "P-Value:", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-        table.cell(statsTable, 1, 1, pValueText, text_color=pValueColor, text_size=size.small, text_halign=text.align_right)
+        if useLogScale
+            startYHigh := safeExp(startYHigh)
+            endYHigh   := safeExp(endYHigh)
+            startYLow  := safeExp(startYLow)
+            endYLow    := safeExp(endYLow)
+            startYMid  := safeExp(startYMid)
+            endYMid    := safeExp(endYMid)
 
-        float channelWidthPct = ((startYHigh - startYLow) / math.max(startYMid, 1e-15)) * 100.0
-        table.cell(statsTable, 0, 2, "Channel Width:", text_color=color.white, text_size=size.small, text_halign=text.align_left)
-        table.cell(statsTable, 1, 2, str.tostring(channelWidthPct, "#.##") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_right)
+        if showLRC
+            liveTrendHigh := line.new(startX, startYHigh, endX, endYHigh, color=regrBearColor, style=line.style_solid, width=lineThickness)
+            liveTrendLow  := line.new(startX, startYLow,  endX, endYLow,  color=regrBullColor, style=line.style_solid, width=lineThickness)
+            liveTrendMiddle := line.new(startX, startYMid, endX, endYMid, color=regrMidColor, style=line.style_dashed, width=1)
+
+        if showHUD
+            color strengthColor = strength >= 75 ? #00ff00 : strength >= 50 ? #ffff00 : #ff0000
+            table.cell(statsTable, 0, 0, "Trend Power (R²):", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(statsTable, 1, 0, str.tostring(strength, "#.##") + "%", text_color=strengthColor, text_size=size.small, text_halign=text.align_right)
+
+            color pValueColor = pValue <= 0.01 ? #00ff00 : pValue <= 0.05 ? #ffff00 : #ff0000
+            string pValueText = pValue < 0.001 ? "< 0.001" : str.tostring(pValue, "#.###")
+            table.cell(statsTable, 0, 1, "P-Value:", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(statsTable, 1, 1, pValueText, text_color=pValueColor, text_size=size.small, text_halign=text.align_right)
+
+            float channelWidthPct = ((startYHigh - startYLow) / math.max(startYMid, 1e-15)) * 100.0
+            table.cell(statsTable, 0, 2, "Channel Width:", text_color=color.white, text_size=size.small, text_halign=text.align_left)
+            table.cell(statsTable, 1, 2, str.tostring(channelWidthPct, "#.##") + "%", text_color=color.white, text_size=size.small, text_halign=text.align_right)
