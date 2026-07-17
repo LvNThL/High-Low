@@ -144,17 +144,6 @@ getThemeColors(string theme) =>
 [bbBullColor, bbBearColor, bbMidColor] = getThemeColors(colorTheme)
 [regrBullColor, regrBearColor, regrMidColor] = getThemeColors(colorTheme)
 
-getBBFillColor(string theme) =>
-    switch theme
-        "Neon"            => color.new(#ffffff, 95)
-        "Azure Trade"     => color.new(#BDE0FE, 95)
-        "Sage & Clay"     => color.new(#D7E5B4, 95)
-        "Slate Pro"       => color.new(#DBEAFE, 95)
-        "Twilight Modern" => color.new(#E9D5FF, 95)
-        => color.new(#CBD5E1, 95)
-
-bbFillColor = getBBFillColor(colorTheme)
-
 safeLog(float value) =>
     math.log(math.max(value, 1e-15))
 
@@ -355,14 +344,9 @@ plot(simplifiedMAs ? na : median9,  color=getPlotColor(median9),  linewidth=thin
 plot(simplifiedMAs ? na : median10, color=getPlotColor(median10), linewidth=thinLineWidth,  title="MA 10", display = _showMAS ? display.all : display.none)
 plot(median11, color=getBBPlotColor(median11), linewidth=lineThickness,  title="MA 11", display = _showMAS ? display.all : display.none)
 
-p2 = plot(bollingerLower, "BB Lower", color=bbBullColor, display=showBollingerBands ? display.all : display.none, linewidth=lineThickness)
-p1 = plot(bollingerUpper, "BB Upper", color=bbBearColor, display=showBollingerBands ? display.all : display.none, linewidth=lineThickness)
-fill(
-    p1, p2,
-    title="BB Background",
-    color=bbFillColor,
-    display=showBollingerBands ? display.all : display.none
-)
+// Bollinger Bands without the background fill
+plot(bollingerLower, "BB Lower", color=bbBullColor, display=showBollingerBands ? display.all : display.none, linewidth=lineThickness)
+plot(bollingerUpper, "BB Upper", color=bbBearColor, display=showBollingerBands ? display.all : display.none, linewidth=lineThickness)
 
 // EXECUTED ONLY ON LAST BAR (To respond instantly to chart panning)
 if barstate.islast
