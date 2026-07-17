@@ -2,7 +2,8 @@
 // © LvNThL
 
 //@version=6
-indicator("Shadow Refinery Compound", "SRC", overlay=true, max_lines_count=100)
+// Added max_bars_back=5000 so the script can look backward deeply when panning without crashing
+indicator("Shadow Refinery Compound", "SRC", overlay=true, max_lines_count=100, max_bars_back=5000)
 import TradingView/ta/7
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -282,61 +283,66 @@ calculateVisibleRegression(int leftBar, int rightBar, bool logScaleMode) =>
     [slope, upperIntercept, lowerIntercept, medianIntercept, rSquaredPercent, pValue]
 
 // ═══════════════════════════════════════════════════════════════════════
-// 5. VISIBLE HIGH / LOW TRACKING
+// 5. VISIBLE RANGE TRACKING & MAPPING
 // ═══════════════════════════════════════════════════════════════════════
-var float visibleHigh = na
-var float visibleLow = na
-var int   visibleHighBar = na
-var int   visibleLowBar = na
 
-var line visibleHighLine = na
-var line visibleLowLine  = na
+// Arrays to map Time to Bar Index instantly
+var array<int> timeArr = array.new_int()
+var array<int> indexArr = array.new_int()
 
-if showVisibleHL and time == chart.left_visible_bar_time
-    visibleHigh := high
-    visibleLow  := low
-    visibleHighBar := bar_index
-    visibleLowBar  := bar_index
+// Populate arrays exactly once per bar to maintain the map
+if barstate.islast == false or barstate.isnew
+    array.push(timeArr, time)
+    array.push(indexArr, bar_index)
+    
+    // Cap the array size at 20,000 bars to manage memory efficiently
+    if array.size(timeArr) > 20000 
+        array.shift(timeArr)
+        array.shift(indexArr)
 
-if showVisibleHL and time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
-    visibleHigh := na(visibleHigh) or high > visibleHigh ? high : visibleHigh
-    visibleLow  := na(visibleLow) or low < visibleLow ? low : visibleLow
-    visibleHighBar := na(visibleHighBar) or high > visibleHigh ? bar_index : visibleHighBar
-    visibleLowBar  := na(visibleLowBar) or low < visibleLow ? bar_index : visibleLowBar
+// Binary search method for O(log N) lookup speed on the last bar
+method get_index_by_time(array<int> times, array<int> indices, int targetTime) =>
+    int left = 0
+    int right = array.size(times) - 1
+    int bestIdx = na
+    
+    while left <= right
+        int mid = math.floor((left + right) / 2)
+        int midTime = array.get(times, mid)
+        
+        if midTime == targetTime
+            bestIdx := array.get(indices, mid)
+            break
+        else if midTime < targetTime
+            bestIdx := array.get(indices, mid) // Track closest smaller time in case of gaps
+            left := mid + 1
+        else
+            right := mid - 1
+    bestIdx
 
-if barstate.islast and showVisibleHL
-    if not na(visibleHighLine)
-        line.delete(visibleHighLine)
-    if not na(visibleLowLine)
-        line.delete(visibleLowLine)
+// Lines declared once using 'var'
+var line visibleHighLine = line.new(na, na, na, na, xloc=xloc.bar_index, extend=extend.right, style=line.style_dashed, width=1)
+var line visibleLowLine  = line.new(na, na, na, na, xloc=xloc.bar_index, extend=extend.right, style=line.style_dashed, width=1)
 
-    visibleHighLine := line.new(
-        visibleHighBar,
-        visibleHigh,
-        visibleHighBar + 1,
-        visibleHigh,
-        xloc=xloc.bar_index,
-        extend=extend.right,
-        color=maBullColor,
-        style=line.style_dashed,
-        width=1
-    )
+var line liveTrendHigh = line.new(na, na, na, na, style=line.style_solid)
+var line liveTrendLow = line.new(na, na, na, na, style=line.style_solid)
+var line liveTrendMiddle = line.new(na, na, na, na, style=line.style_dashed)
 
-    visibleLowLine := line.new(
-        visibleLowBar,
-        visibleLow,
-        visibleLowBar + 1,
-        visibleLow,
-        xloc=xloc.bar_index,
-        extend=extend.right,
-        color=maBearColor,
-        style=line.style_dashed,
-        width=1
-    )
+var table statsTable = table.new(
+    position.bottom_right,
+    2,
+    3,
+    bgcolor=color.new(color.black, 20),
+    frame_color=color.new(color.gray, 50),
+    frame_width=1,
+    border_color=color.new(color.gray, 80),
+    border_width=1
+)
 
 // ═══════════════════════════════════════════════════════════════════════
-// 6. PLOTTING
+// 6. PLOTTING & REAL-TIME UPDATES
 // ═══════════════════════════════════════════════════════════════════════
+
 plot(median1,  color=getPlotColor(median1),  linewidth=thinLineWidth,  title="MA 1", display = _showMAS ? display.all : display.none)
 plot(median2,  color=getPlotColor(median2),  linewidth=thinLineWidth,  title="MA 2", display = _showMAS ? display.all : display.none)
 plot(simplifiedMAs ? na : median3,  color=getPlotColor(median3),  linewidth=thinLineWidth,  title="MA 3", display = _showMAS ? display.all : display.none)
@@ -358,53 +364,53 @@ fill(
     display=showBollingerBands ? display.all : display.none
 )
 
-var line liveTrendHigh = na
-var line liveTrendLow = na
-var line liveTrendMiddle = na
-
-var table statsTable = table.new(
-    position.bottom_right,
-    2,
-    3,
-    bgcolor=color.new(color.black, 20),
-    frame_color=color.new(color.gray, 50),
-    frame_width=1,
-    border_color=color.new(color.gray, 80),
-    border_width=1
-)
-
-var int visibleLeftBarIndex = na
-var int visibleRightBarIndex = na
-var int lastViewportLeftTime = na
-
-if chart.left_visible_bar_time != lastViewportLeftTime
-    visibleLeftBarIndex := na
-    lastViewportLeftTime := chart.left_visible_bar_time
-
-if time >= chart.left_visible_bar_time and time <= chart.right_visible_bar_time
-    if na(visibleLeftBarIndex)
-        visibleLeftBarIndex := bar_index
-    visibleRightBarIndex := bar_index
-
-
+// EXECUTED ONLY ON LAST BAR (To respond instantly to chart panning)
 if barstate.islast
     int calcStartX = na
     int calcEndX = na
 
     if lrcCalcMode == "Visible Range"
-        if not na(visibleLeftBarIndex) and not na(visibleRightBarIndex)
-            calcStartX := visibleLeftBarIndex
-            calcEndX := visibleRightBarIndex
+        // Instant array mapping vs slow history looping
+        calcStartX := timeArr.get_index_by_time(indexArr, chart.left_visible_bar_time)
+        calcEndX   := timeArr.get_index_by_time(indexArr, chart.right_visible_bar_time)
     else
         calcStartX := math.max(0, bar_index - lrcFixedLength + 1)
         calcEndX := bar_index
 
-    if not na(calcStartX) and not na(calcEndX)
-        if not na(liveTrendHigh)
-            line.delete(liveTrendHigh)
-            line.delete(liveTrendLow)
-            line.delete(liveTrendMiddle)
+    // DYNAMIC VISIBLE HIGH/LOW TRACKING
+    if showVisibleHL and not na(calcStartX) and not na(calcEndX)
+        float visHigh = na
+        float visLow = na
+        int visHighBar = na
+        int visLowBar = na
+        
+        int barsToStart = bar_index - calcStartX
+        int barsToEnd = bar_index - calcEndX
+        
+        // Scan backwards through visible bars 
+        for i = math.max(0, barsToEnd) to math.max(0, barsToStart)
+            float h = high[i]
+            float l = low[i]
+            int bIdx = bar_index - i
+            
+            if na(visHigh) or h > visHigh
+                visHigh := h
+                visHighBar := bIdx
+            if na(visLow) or l < visLow
+                visLow := l
+                visLowBar := bIdx
+                
+        if not na(visHigh)
+            line.set_xy1(visibleHighLine, visHighBar, visHigh)
+            line.set_xy2(visibleHighLine, visHighBar + 1, visHigh)
+            line.set_color(visibleHighLine, maBullColor)
+            
+            line.set_xy1(visibleLowLine, visLowBar, visLow)
+            line.set_xy2(visibleLowLine, visLowBar + 1, visLow)
+            line.set_color(visibleLowLine, maBearColor)
 
+    // LINEAR REGRESSION UPDATES
+    if not na(calcStartX) and not na(calcEndX)
         [slope, upperIntercept, lowerIntercept, medianIntercept, strength, pValue] = calculateVisibleRegression(calcStartX, calcEndX, useLogScale)
 
         int startX = calcStartX
@@ -428,9 +434,20 @@ if barstate.islast
             endYMid    := safeExp(endYMid)
 
         if showLRC
-            liveTrendHigh := line.new(startX, startYHigh, endX, endYHigh, color=regrBearColor, style=line.style_solid, width=lineThickness)
-            liveTrendLow  := line.new(startX, startYLow,  endX, endYLow,  color=regrBullColor, style=line.style_solid, width=lineThickness)
-            liveTrendMiddle := line.new(startX, startYMid, endX, endYMid, color=regrMidColor, style=line.style_dashed, width=1)
+            line.set_xy1(liveTrendHigh, startX, startYHigh)
+            line.set_xy2(liveTrendHigh, endX, endYHigh)
+            line.set_color(liveTrendHigh, regrBearColor)
+            line.set_width(liveTrendHigh, lineThickness)
+            
+            line.set_xy1(liveTrendLow, startX, startYLow)
+            line.set_xy2(liveTrendLow, endX, endYLow)
+            line.set_color(liveTrendLow, regrBullColor)
+            line.set_width(liveTrendLow, lineThickness)
+            
+            line.set_xy1(liveTrendMiddle, startX, startYMid)
+            line.set_xy2(liveTrendMiddle, endX, endYMid)
+            line.set_color(liveTrendMiddle, regrMidColor)
+            line.set_width(liveTrendMiddle, 1)
 
         if showHUD
             color strengthColor = strength >= 75 ? #00ff00 : strength >= 50 ? #ffff00 : #ff0000
